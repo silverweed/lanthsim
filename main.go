@@ -16,9 +16,11 @@ import (
 	"strconv"
 )
 
-const WIDTH int = 450
-const HEIGHT int = 200
-const FS int = 30
+const (
+	WIDTH  int = 450
+	HEIGHT int = 200
+	FS     int = 30
+)
 
 var font *truetype.Font
 
@@ -26,14 +28,13 @@ func drawHandler(rw http.ResponseWriter, req *http.Request) {
 	qry, err := url.ParseQuery(req.URL.RawQuery)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error parsing query: {}", err.Error())
+		http.Error(rw, err.Error(), 400)
 		return
 	}
-	var str string
+	str := "Plz insert text via 'txt' GET param"
 	width, height, fs := WIDTH, HEIGHT, FS
 	if len(qry["txt"]) > 0 {
 		str = qry["txt"][0]
-	} else {
-		str = "Plz insert text via 'txt' GET param"
 	}
 	if len(qry["w"]) > 0 {
 		width, _ = strconv.Atoi(qry["w"][0])
@@ -49,13 +50,15 @@ func drawHandler(rw http.ResponseWriter, req *http.Request) {
 
 func drawString(w io.Writer, str string, width, height, fs int) {
 	bg, fg := image.Black, image.White
+	// Create the canvas
 	rgba := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
+	// Create the context to draw the string on
 	c := freetype.NewContext()
 	c.SetDPI(72)
 	c.SetClip(rgba.Bounds())
-	c.SetDst(rgba)
 	c.SetSrc(fg)
+	c.SetDst(rgba)
 	c.SetFont(font)
 	c.SetFontSize(float64(fs))
 	curs := freetype.Pt(fs, fs)
@@ -68,7 +71,10 @@ func drawString(w io.Writer, str string, width, height, fs int) {
 				continue
 			}
 		}
-		off, _ := c.DrawString(str[i:i+1], curs)
+		off, err := c.DrawString(str[i:i+1], curs)
+		if err != nil {
+			panic("Error drawing string: " + err.Error())
+		}
 		curs.X = off.X
 		i++
 	}
