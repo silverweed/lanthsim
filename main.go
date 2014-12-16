@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -17,18 +18,18 @@ import (
 
 const WIDTH int = 450
 const HEIGHT int = 200
-const fs int = 30
+const FS int = 30
 
 var font *truetype.Font
 
-func drawString(rw http.ResponseWriter, req *http.Request) {
+func drawHandler(rw http.ResponseWriter, req *http.Request) {
 	qry, err := url.ParseQuery(req.URL.RawQuery)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error parsing query: {}", err.Error())
 		return
 	}
 	var str string
-	width, height := WIDTH, HEIGHT
+	width, height, fs := WIDTH, HEIGHT, FS
 	if len(qry["txt"]) > 0 {
 		str = qry["txt"][0]
 	} else {
@@ -40,6 +41,13 @@ func drawString(rw http.ResponseWriter, req *http.Request) {
 	if len(qry["h"]) > 0 {
 		height, _ = strconv.Atoi(qry["h"][0])
 	}
+	if len(qry["fs"]) > 0 {
+		fs, _ = strconv.Atoi(qry["fs"][0])
+	}
+	drawString(rw, str, width, height, fs)
+}
+
+func drawString(w io.Writer, str string, width, height, fs int) {
 	bg, fg := image.Black, image.White
 	rgba := image.NewRGBA(image.Rect(0, 0, width, height))
 	draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
@@ -64,11 +72,11 @@ func drawString(rw http.ResponseWriter, req *http.Request) {
 		curs.X = off.X
 		i++
 	}
-	png.Encode(rw, rgba)
+	png.Encode(w, rgba)
 }
 
 func main() {
-	http.HandleFunc("/", drawString)
+	http.HandleFunc("/", drawHandler)
 	var fontFile string
 	if len(os.Args) > 1 {
 		fontFile = os.Args[1]
